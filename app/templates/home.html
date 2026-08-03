@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block topbar_right %}
+<span class="cash-pill">${{ '{:,}'.format(cash) }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="kicker">Net Worth · Tier {{ tier }}</div>
+    <h1 class="case-title">{{ tier_name }}</h1>
+    <p class="sub">Filed under {{ player.nickname }} · {{ cases_played }} Case{{ '' if cases_played == 1 else 's' }} closed</p>
+
+    <div class="stat-row">
+        <div>
+            <div class="big">${{ '{:,}'.format(cash) }}</div>
+            <div class="lbl">Net Worth</div>
+        </div>
+        <div>
+            <div class="big">${{ '{:,}'.format(peak_cash) }}</div>
+            <div class="lbl">Peak</div>
+        </div>
+    </div>
+
+    {% if tier_hi %}
+    {% set pct = (tier_progress * 100) | round | int %}
+    <div class="progress">Tier {{ tier }} · ${{ '{:,}'.format(tier_lo) }}–${{ '{:,}'.format(tier_hi) }}</div>
+    <div style="height:10px; background:rgba(0,0,0,0.12); border-radius:999px; overflow:hidden; margin:4px 0 6px;">
+        <div style="height:100%; width:{{ pct }}%; background:var(--gold); border-radius:999px;"></div>
+    </div>
+    <div class="progress">{{ pct }}% to Tier {{ tier + 1 }}</div>
+    {% else %}
+    <div class="progress">Tier {{ tier }} · ${{ '{:,}'.format(tier_lo) }}+ — rare air</div>
+    {% endif %}
+
+    <a class="btn" href="/play">{{ 'Resume your Case →' if has_case else 'Play next Case →' }}</a>
+
+    <hr class="divider">
+    <div class="kicker">The Board — verticals unlock as your net worth climbs</div>
+    <div class="vibe-grid" style="margin-top:12px;">
+        {% for v in verticals %}
+        <div class="evidence-row" style="opacity:1; transform:none; animation:none;
+             {% if not v.unlocked %}filter:grayscale(1); opacity:0.5;{% endif %}">
+            <span>
+                <strong>{{ v.title }}</strong><br>
+                <span style="font-size:12.5px; color:var(--muted); font-style:italic;">{{ v.tagline }}</span>
+            </span>
+            <span class="val" style="white-space:nowrap; flex-shrink:0;">{{ 'OPEN' if v.unlocked else 'Tier ' ~ v.min_tier }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block topbar_right %}<span class="cash-pill">${{ '{:,}'.format(cash) }}</span>{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="kicker">Cold Case · Run Closed</div>
+    <h1 class="case-title">{{ cold_headline }}</h1>
+
+    {# Reuse the verdict stamp component; --red is an existing palette var, no new colors. #}
+    <div class="verdict-stamp" style="background:var(--red); color:var(--card); border-color:var(--ink);
+         animation:none; opacity:1; transform:none;">
+        Busted · {{ streak }} Straight Losses
+    </div>
+
+    <div class="stat-row">
+        <div>
+            <div class="big">${{ '{:,}'.format(peak_cash) }}</div>
+            <div class="lbl">Peak Net Worth</div>
+        </div>
+        <div>
+            <div class="big">${{ '{:,}'.format(final_cash) }}</div>
+            <div class="lbl">Where It Ended</div>
+        </div>
+    </div>
+
+    <p class="case-notes">{{ cold_body }}</p>
+
+    <hr class="divider">
+    <form method="post" action="/start-over">
+        <button type="submit">Start Over →</button>
+    </form>
+</div>
+{% endblock %}

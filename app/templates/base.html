@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overdraft</title>
+    <style>
+        :root {
+            --ink: #1C2431;
+            --paper: #EDE6D6;
+            --card: #F7F2E7;
+            --gold: #C98A2C;
+            --gold-dark: #A87118;
+            --teal: #1B4B4A;
+            --red: #A4432E;
+            --green: #4F7A3A;
+            --muted: #6B6456;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--ink);
+            background-image: radial-gradient(ellipse at 50% 0%, #263246 0%, var(--ink) 70%);
+            color: var(--paper);
+            font-family: Georgia, 'Times New Roman', serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 48px;
+        }
+        .topbar {
+            width: 100%;
+            max-width: 440px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 20px;
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .topbar .brand { color: var(--gold); font-weight: 700; letter-spacing: 0.14em; }
+        .cash-pill {
+            background: var(--gold);
+            color: var(--ink);
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 3px 12px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+        .card {
+            background: var(--card);
+            color: var(--ink);
+            border-radius: 14px;
+            padding: 28px 26px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 12px 34px rgba(0,0,0,0.45), 0 2px 0 rgba(255,255,255,0.06) inset;
+            border: 1px solid rgba(0,0,0,0.25);
+        }
+        .kicker {
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        h1.case-title {
+            font-size: 30px;
+            line-height: 1.1;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .boss-tag {
+            display: inline-block;
+            background: var(--red);
+            color: var(--card);
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            border-radius: 4px;
+            padding: 2px 8px;
+            margin-bottom: 8px;
+        }
+        .sub { font-size: 14px; color: var(--muted); margin-bottom: 20px; font-style: italic; }
+
+        .option {
+            display: block;
+            background: #fff;
+            border: 2px solid #D8D0BE;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, transform 0.1s ease;
+        }
+        .option:hover { border-color: var(--gold); transform: translateY(-1px); }
+        .option input { margin-right: 10px; accent-color: var(--gold-dark); }
+        .option-label { font-weight: 700; font-size: 17px; }
+        .option-teaser { font-size: 13.5px; color: var(--muted); margin-top: 4px; font-style: italic; }
+
+        button, .btn {
+            display: block;
+            width: 100%;
+            background: var(--gold);
+            color: var(--ink);
+            border: none;
+            border-radius: 9px;
+            padding: 13px 18px;
+            font-family: Georgia, serif;
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        button:hover, .btn:hover { background: var(--gold-dark); transform: translateY(-1px); }
+        .btn-quiet { background: transparent; border: 2px solid var(--gold); color: var(--gold-dark); }
+        .btn-quiet:hover { background: rgba(201,138,44,0.1); }
+
+        input[type=range] { width: 100%; margin: 18px 0 10px; accent-color: var(--gold-dark); }
+        input[type=text] {
+            width: 100%;
+            padding: 12px 14px;
+            font-family: Georgia, serif;
+            font-size: 16px;
+            border: 2px solid #D8D0BE;
+            border-radius: 9px;
+            background: #fff;
+            color: var(--ink);
+            margin-bottom: 16px;
+        }
+        input[type=text]:focus { outline: none; border-color: var(--gold); }
+
+        .bet-readout {
+            text-align: center;
+            font-size: 34px;
+            font-weight: 900;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.02em;
+        }
+
+        /* Evidence rows — staged reveal */
+        .evidence-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 14px;
+            padding: 10px 14px;
+            background: #fff;
+            border: 1px solid #E2DAC8;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(6px);
+            animation: slidein 0.4s ease forwards;
+        }
+        /* Let both cells shrink and wrap instead of clipping at the card edge.
+           min-width:0 lets a flex child shrink below its content width;
+           overflow-wrap:anywhere breaks even long unspaced values (v8 art rule:
+           nothing truncates). Applies to every Case, not just the long ones. */
+        .evidence-row > span { min-width: 0; overflow-wrap: anywhere; }
+        .evidence-row .val { font-weight: 700; font-family: 'Courier New', monospace; text-align: right; }
+        @keyframes slidein { to { opacity: 1; transform: translateY(0); } }
+
+        /* Verdict stamp */
+        .verdict-stamp {
+            text-align: center;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            padding: 16px;
+            border-radius: 10px;
+            margin: 18px 0 10px;
+            border: 3px solid var(--ink);
+            text-transform: uppercase;
+            opacity: 0;
+            transform: scale(1.6) rotate(-4deg);
+            animation: stamp 0.35s cubic-bezier(.2,1.6,.4,1) forwards;
+        }
+        @keyframes stamp { to { opacity: 1; transform: scale(1) rotate(-2deg); } }
+        .stamp-win  { background: var(--gold);  color: var(--ink); border-color: var(--gold-dark); }
+        .stamp-tie  { background: var(--teal);  color: var(--card); border-color: #123534; }
+
+        .case-notes {
+            font-style: italic;
+            font-size: 14.5px;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 14px;
+            line-height: 1.5;
+        }
+
+        .feedback-badge {
+            display: inline-block;
+            padding: 5px 16px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.08em;
+        }
+        .nailed_it { background: var(--green); color: #fff; }
+        .so_close  { background: var(--gold);  color: var(--ink); }
+        .way_off   { background: var(--red);   color: #fff; }
+
+        .bet-compare {
+            display: flex;
+            justify-content: center;
+            gap: 22px;
+            margin: 12px 0 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+        }
+        .bet-compare .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; display: block; text-align: center; }
+        .bet-compare .num { font-weight: 700; font-size: 20px; text-align: center; }
+
+        .reward-line {
+            text-align: center;
+            font-size: 15px;
+            margin-top: 12px;
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        .vibe-grid { display: grid; gap: 10px; margin-bottom: 18px; }
+        .progress {
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .divider { border: none; border-top: 1px solid #DDD5C2; margin: 18px 0; }
+
+        .stat-row { display: flex; justify-content: space-around; text-align: center; margin: 18px 0; }
+        .stat-row .big { font-size: 30px; font-weight: 900; font-family: 'Courier New', monospace; }
+        .stat-row .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="brand">OVERDRAFT</span>
+        {% block topbar_right %}{% endblock %}
+    </div>
+    {% block content %}{% endblock %}
+</body>
+</html>

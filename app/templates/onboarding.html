@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="kicker">Case File · New Investigator</div>
+    <h1 class="case-title">Overdraft</h1>
+    <p class="sub">Every deal looks good until you read the evidence. Climb from broke
+    to outlier — one Case at a time.</p>
+
+    <form action="/onboard" method="post">
+        <label class="kicker" for="nickname">What should we file you under?</label>
+        <input type="text" id="nickname" name="nickname" maxlength="24"
+               placeholder="Your name" autocomplete="off" autofocus required>
+        <button type="submit">Open your first Case →</button>
+    </form>
+</div>
+{% endblock %}

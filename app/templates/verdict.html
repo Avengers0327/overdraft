@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block topbar_right %}<span class="cash-pill">${{ '{:,}'.format(new_cash) }}</span>{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="kicker">The Evidence</div>
+    <h1 class="case-title">{{ case.title }}</h1>
+    {% if has_bet and case.pick_type == "binary" %}
+        <p class="sub">You picked: <strong>{{ case.option_a_label if case.picked == 'a' else case.option_b_label }}</strong></p>
+    {% elif case.pick_type == "investigation" %}
+        <p class="sub">Investigation closed. Here's what the numbers actually said.</p>
+    {% else %}
+        <p class="sub">Here's what that little exercise actually cost you.</p>
+    {% endif %}
+
+    {# Staged reveal: each row animates in on a delay; verdict stamps last #}
+    {% set n = case.evidence|length %}
+    {% for label, value in case.evidence %}
+    <div class="evidence-row" style="animation-delay: {{ loop.index0 * 0.9 }}s">
+        <span>{{ label }}</span>
+        <span class="val">{{ value }}</span>
+    </div>
+    {% endfor %}
+
+    <div class="verdict-stamp {{ 'stamp-tie' if case.winner in ('tie', 'solved') else 'stamp-win' }}"
+         style="animation-delay: {{ n * 0.9 + 0.3 }}s">
+        {% if case.winner == 'solved' %}
+            Case Solved
+        {% elif case.winner == 'tie' %}
+            Case Notes Only
+        {% elif called_it %}
+            You Called It
+        {% else %}
+            {{ case.option_a_label if case.winner == 'a' else case.option_b_label }} Wins
+        {% endif %}
+    </div>
+
+    <div style="text-align:center; opacity:0; animation: slidein 0.4s ease forwards; animation-delay: {{ n * 0.9 + 0.8 }}s">
+        {% if has_bet %}
+        <div class="bet-compare">
+            <div><span class="lbl">Your bet</span><span class="num">${{ '%.2f'|format(bet_value) }}</span></div>
+            <div><span class="lbl">Actual</span><span class="num">${{ '%.2f'|format(actual_value) }}</span></div>
+        </div>
+        <span class="feedback-badge {{ result_tier }}">{{ feedback }}</span>
+        {% endif %}
+        {% if reward < 0 %}
+        <div class="reward-line" style="color:var(--red)">−${{ '{:,}'.format(-reward) }} cash — {{ 'right read, wrong number' if called_it else 'wrong call cost you' }}</div>
+        {% elif reward > 0 %}
+        <div class="reward-line">+${{ '{:,}'.format(reward) }} cash{% if reward_capped %} — capped, this one was big{% endif %}</div>
+        {% else %}
+        <div class="reward-line">Breakeven — no gain, no loss. So close.</div>
+        {% endif %}
+
+        {% if loss_streak_now and loss_streak_now >= 2 %}
+        <div class="progress" style="color:var(--red); margin-top:8px;">
+            ⚠ {{ loss_streak_now }} losses in a row — the run ends at {{ bust_threshold }}
+        </div>
+        {% endif %}
+
+        {% if tier_up %}
+        <div class="verdict-stamp stamp-win" style="animation:none; opacity:1; transform:none; font-size:18px; margin-top:14px;">
+            Tier Up → {{ new_tier }} · {{ new_tier_name }}
+        </div>
+        {% elif tier_down %}
+        <div class="progress" style="color:var(--red); margin-top:6px;">
+            Dropped to Tier {{ new_tier }} · {{ new_tier_name }}
+        </div>
+        {% endif %}
+
+        <p class="case-notes">&ldquo;{{ case.case_notes }}&rdquo;</p>
+
+        <hr class="divider">
+        <a class="btn" href="/play">Next Case →</a>
+        <a class="btn btn-quiet" href="/" style="margin-top:10px;">Back to the board</a>
+    </div>
+</div>
+{% endblock %}

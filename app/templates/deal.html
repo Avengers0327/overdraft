@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block topbar_right %}<span class="cash-pill">${{ '{:,}'.format(cash) }}</span>{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="progress">Tier {{ tier }} · {{ tier_name }}{% if vertical %} · {{ vertical.title }}{% endif %}</div>
+    {% if case.is_outlier %}<span class="boss-tag">Outlier Event</span>{% endif %}
+    <h1 class="case-title">{{ case.title }}</h1>
+
+    {% if case.pick_type == "binary" %}
+        <p class="sub">{% if case.first_look %}{{ case.first_look }}{% else %}Your call. Partial info only — that's the point.{% endif %}</p>
+        {# autocomplete="off" stops the browser restoring a prior radio selection
+           for the shared "choice" group — no option is ever pre-selected, so the
+           player must make an active call before "Lock it in" means anything. #}
+        <form method="post" action="/pick" autocomplete="off">
+            <label class="option">
+                <input type="radio" name="choice" value="a" required autocomplete="off">
+                <span class="option-label">{{ case.option_a_label }}</span>
+                <div class="option-teaser">{{ case.option_a_teaser }}</div>
+            </label>
+            <label class="option">
+                <input type="radio" name="choice" value="b" required autocomplete="off">
+                <span class="option-label">{{ case.option_b_label }}</span>
+                <div class="option-teaser">{{ case.option_b_teaser }}</div>
+            </label>
+            <button type="submit">Lock it in</button>
+        </form>
+
+    {% elif case.pick_type == "investigation" %}
+        <p class="sub">{{ case.first_look }}</p>
+        <p style="font-size:14.5px; line-height:1.6; margin-bottom:20px; color:var(--muted);">
+            No pick on this one. Open the file, read the evidence, then call the number.
+        </p>
+        <form method="post" action="/pick">
+            <button type="submit">Open the case file</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}

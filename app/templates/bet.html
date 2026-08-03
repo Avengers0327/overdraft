@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block topbar_right %}<span class="cash-pill">${{ '{:,}'.format(cash) }}</span>{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="kicker">The Bet · Tier {{ tier }} {{ tier_name }}</div>
+    <h1 class="case-title">{{ case.title }}</h1>
+    <p class="sub">{{ case.bet_label }}</p>
+
+    <form method="post" action="/bet">
+        {% set lo = case.bet_range[0]|round(2) %}
+        {% set hi = case.bet_range[1]|round(2) %}
+        {% set mid = ((lo + hi) / 2)|round(2) %}
+        <input type="range" name="bet_value"
+               min="{{ lo }}" max="{{ hi }}" step="0.01" value="{{ mid }}"
+               oninput="document.getElementById('betout').textContent = '$' + Number(this.value).toFixed(2)">
+        <div class="bet-readout" id="betout">${{ '%.2f'|format(mid) }}</div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); font-family:'Courier New',monospace; margin-bottom:16px;">
+            <span>${{ '%.2f'|format(lo) }}</span><span>${{ '%.2f'|format(hi) }}</span>
+        </div>
+        <button type="submit">Place the bet</button>
+    </form>
+</div>
+{% endblock %}
