@@ -40,6 +40,15 @@ class CaseResult:
     option_b_label: str = ""
     option_a_teaser: str = ""          # partial info only — that's the point
     option_b_teaser: str = ""
+    # Real-dollar price of an option, set ONLY when picking it is an actual purchase
+    # the player pays for out of pocket now (e.g. Free-to-Play's $4.99 Pro). None on
+    # every option that isn't a purchase (signing a deal, opening an account, placing
+    # savings — those cost nothing to choose). When set and the player's cash is below
+    # it, the option is blocked: you can't buy what you can't afford (Bug 1). Costs are
+    # NOT debited from cash — cash tracks bet skill, not scenario spending — the field
+    # only gates selectability, so a broke player can't collect the reward "as if paid."
+    option_a_cost: Optional[float] = None
+    option_b_cost: Optional[float] = None
     deception_eligible: bool = True    # can tier difficulty flip the teaser framing?
 
     picked: Optional[str] = None       # "a"/"b" after the pick (None if no pick)
@@ -57,6 +66,13 @@ class CaseResult:
     # Outlier Event, so the verdict screen can frame it as rare-air.
     is_outlier: bool = False
     outlier_key: str = ""
+
+    # Callback provenance. Set when this draw is a Callback Case (a replay of a case_type the
+    # player already saw, with one fewer evidence layer). callback_ref is the display name of a
+    # sibling in the same pattern family the player also encountered — shown as one quiet line on
+    # the verdict screen ONLY if they read it correctly. Never surfaced pre-bet (the test is silent).
+    is_callback: bool = False
+    callback_ref: str = ""
 
     # Navigation sub-mechanic state (D1 — Dark Pattern Cancel).
     nav_screens: list = field(default_factory=list)
@@ -91,6 +107,21 @@ class CaseTemplate:
     # premise Case that shouldn't appear at the low end (case_min_tier).
     case_min_tier: Optional[int] = None
     case_max_tier: Optional[int] = None
+
+    # The tier this Case is being drawn for, set by draw_case() BEFORE generate() runs
+    # so a Case can scale its scenario DOLLAR amounts to the tier (foundation Cases do;
+    # most ignore it). None only in low-level direct use — treat as the anchor (Tier 1),
+    # i.e. no scaling. This is the draw target; the separate apply_tier_difficulty() step
+    # (bet-range tightening, evidence cap) still runs afterward on the same tier.
+    target_tier: Optional[int] = None
+
+    # Callback pattern — the UNDERLYING lesson this Case teaches, never shown to the
+    # player. Case types sharing a `pattern` are siblings; the Callback Case mechanic
+    # (verticals.py, wired later) replays one with one fewer evidence layer to test whether
+    # the player learned the PATTERN, not just that one instance, and can reference a sibling
+    # on the verdict screen. None = not yet part of a tagged pattern family (most Cases —
+    # we tag only the clearest overlaps first, not everything at once).
+    pattern: Optional[str] = None
 
     def generate(self) -> CaseResult:
         raise NotImplementedError
@@ -159,13 +190,15 @@ MIN_TIER = 1
 MAX_TIER = 5
 
 
-def apply_tier_difficulty(case: CaseResult, tier: int) -> CaseResult:
+def apply_tier_difficulty(case: CaseResult, tier: int, evidence_drop: int = 0) -> CaseResult:
     """Scale a freshly generated Case to a tier (Granular B.1, verbatim shape).
 
     1. Tighten the bet range around its midpoint (keep `range_keep` of the span),
        but never so far that the correct answer falls off the slider — a range
        that can't express the right bet makes the Case unwinnable by construction.
     2. Cap evidence to the tier's layer count — cap only, never pad fake layers.
+       `evidence_drop` trims that cap by an extra N layers (Callback Cases pass 1),
+       clamped so at least one row always survives.
 
     NOTE: the GDD's tier-difficulty step 3 was a "deception roll" that swapped
     option_a_teaser <-> option_b_teaser. That's removed: every Case here writes
@@ -192,7 +225,8 @@ def apply_tier_difficulty(case: CaseResult, tier: int) -> CaseResult:
         new_hi = max(new_hi, case.actual_value)
     case.bet_range = (new_lo, new_hi)
 
-    case.evidence = case.evidence[: profile["evidence_layers"]]
+    layers = max(1, profile["evidence_layers"] - evidence_drop)
+    case.evidence = case.evidence[:layers]
 
     # (No teaser swap — see docstring. Teasers stay bound to their own labels.)
     return case
@@ -203,20 +237,27 @@ def apply_tier_difficulty(case: CaseResult, tier: int) -> CaseResult:
 # ===========================================================================
 
 def draw_case(case_type: Optional[str] = None, seed: Optional[int] = None,
-              tier: Optional[int] = None) -> CaseResult:
+              tier: Optional[int] = None, evidence_drop: int = 0) -> CaseResult:
     """Generate one Case, then apply tier difficulty.
 
     `tier` here scales the Case; when None the Case keeps its own default tier.
     The full tier -> vertical -> case_type selection lives in verticals.py; this
     is the low-level "make me this case_type at this tier" primitive.
     Pass `seed` for Daily Seed mode (same seed = same numbers for everyone).
+    `evidence_drop` shows that many fewer evidence layers than the tier normally would
+    (Callback Cases pass 1 — a leaner post-bet reveal).
     """
     if seed is not None:
         random.seed(seed)
     if case_type is None:
         case_type = random.choice(list(CASE_REGISTRY.keys()))
-    case = CASE_REGISTRY[case_type]().generate()
-    return apply_tier_difficulty(case, tier if tier is not None else case.tier)
+    tmpl = CASE_REGISTRY[case_type]()
+    # Tell the template which tier it's being drawn for BEFORE generate(), so a Case can
+    # scale its scenario dollars to the tier (foundation Cases do; most ignore target_tier).
+    tmpl.target_tier = tier
+    case = tmpl.generate()
+    return apply_tier_difficulty(case, tier if tier is not None else case.tier,
+                                 evidence_drop=evidence_drop)
 
 
 # ===========================================================================
@@ -314,6 +355,41 @@ def case_reward(result_tier: str, picked: Optional[str], winner: Optional[str],
     if reward > cap:                       # cap ALL positive payouts, so the bonus can't
         return cap, called_it, True        # sneak past the anti-explosion ceiling
     return reward, called_it, False
+
+
+def recognition_reward(called_it: bool, tier: int, cash: float,
+                       deception_eligible: bool = True,
+                       stakes_mult: float = 1.0) -> int:
+    """Cash delta for a RECOGNITION Case — a binary Case with has_bet=False.
+
+    Fraud detection is a JUDGMENT skill (spot the pattern), not a PRECISION skill
+    (estimate a number), so there is no bet to score and nothing to ground a reward in
+    the way case_reward() grounds itself in actual_value. The payout is therefore keyed
+    to the tier's stakes_pct and is SYMMETRIC:
+
+        called it  ->  +round(cash * stakes_pct)
+        missed it  ->  -round(cash * stakes_pct * stakes_mult)
+
+    The loss side is deliberately the SAME stakes_pct penalty any other binary Case's
+    wrong pick takes (Locked Refinement #1-2) — falling for a scam costs what a bad call
+    costs. No bet-accuracy multiplier is involved on either side, because there is no bet.
+
+    Symmetry means the tier curve carries through untouched: spotting a scam is worth 30%
+    of your cash at Broke and 4% at Outlier, matching the two-axis design (stakes DOWN as
+    tier rises) without inventing a dollar figure the scripts never specified.
+
+    `deception_eligible=False` disables the loss side only (a no-shame recognition Case
+    could reward the right call without punishing the wrong one); the gain side is unaffected.
+    Losses are clamped so a SINGLE Case can't drop cash below LOSS_FLOOR — only a streak
+    ends a run, and a missed recognition Case feeds that streak like any other wrong pick.
+    """
+    stakes_pct = TIER_DIFFICULTY.get(tier, TIER_DIFFICULTY[2])["stakes_pct"]
+    if called_it:
+        return round(cash * stakes_pct)
+    if not deception_eligible:
+        return 0
+    floor_room = max(0, int(cash) - LOSS_FLOOR)
+    return -min(round(cash * stakes_pct * stakes_mult), floor_room)
 
 
 def loss_streak(history: list[dict]) -> int:

@@ -13,6 +13,10 @@ list to edit anywhere else. This is the "open" in "open vertical system" (v8 §3
 # Everyday Money leads: it's the open (Tier 1) baseline vertical, the curriculum's
 # foundation, so it sits first on the board.
 from app.content import everyday_money    # noqa: F401  (import side effects)
+# Trust & Fraud is the other min_tier=1 vertical, so it sits directly after the
+# foundation on the board — and it's the vertical the archetype outside-pair floor
+# exists to protect (it's outside every archetype's major/minor pair).
+from app.content import trust_fraud       # noqa: F401
 from app.content import creator_economy   # noqa: F401
 from app.content import trades_hustles    # noqa: F401
 from app.content import borrowed_money    # noqa: F401
@@ -22,6 +26,6 @@ from app.content import startup_world     # noqa: F401
 from app.content import sports_nil        # noqa: F401
 
 __all__ = [
-    "everyday_money", "creator_economy", "trades_hustles", "borrowed_money",
-    "real_estate", "insurance", "startup_world", "sports_nil",
+    "everyday_money", "trust_fraud", "creator_economy", "trades_hustles",
+    "borrowed_money", "real_estate", "insurance", "startup_world", "sports_nil",
 ]

@@ -25,14 +25,20 @@ from fastapi.templating import Jinja2Templates
 from app import db
 from app import content   # noqa: F401 — import side effects populate the registries
 from app.cases import (
-    CaseResult, STARTING_CASH, score_bet, case_reward, loss_streak, BUST_THRESHOLD,
+    CaseResult, STARTING_CASH, score_bet, case_reward, recognition_reward,
+    loss_streak, BUST_THRESHOLD,
 )
 from app.verticals import (
     VERTICAL_REGISTRY, VERTICAL_ORDER, current_tier, tier_name,
-    eligible_verticals, draw_next_case,
+    eligible_verticals, draw_for_player, ARCHETYPES,
 )
+from app.dev import router as dev_router
 
 app = FastAPI(title="Overdraft")
+# Dev-cheat panel. Mounted unconditionally, but EVERY route inside is gated on
+# settings.DEV_MODE and 404s without it (app/dev.py) — one gate, on the router, so the
+# surface can't half-ship. Nothing here is reachable in a build that doesn't set DEV_MODE.
+app.include_router(dev_router)
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -49,11 +55,13 @@ def current_player(request: Request) -> dict | None:
 def _draw(player: dict) -> CaseResult:
     """Draw the next Case for a player through the full pipeline (v8 §6).
 
-    Traits (v8 §4) and Outlier Events (v8 §5) get layered on here in later build
-    steps — right now the pipeline is tier -> weighted vertical -> case -> tier
-    difficulty, which is exactly what the Creator Economy slice needs to prove.
+    The pipeline itself (callback slot -> tier -> archetype-weighted vertical -> case ->
+    tier difficulty) lives in verticals.draw_for_player() so the dev inspection routes can
+    sample the identical function; this is just the player-dict adapter. Traits (v8 §4) and
+    Outlier Events (v8 §5) get layered on here in later build steps.
     """
-    return draw_next_case(player["cash"], player["history"])
+    return draw_for_player(player["cash"], player["history"],
+                           archetype=player.get("archetype"))
 
 
 def _tier_context(cash: float) -> dict:
@@ -101,6 +109,55 @@ def _cold_case_context(player: dict) -> dict:
             "cold_headline": headline, "cold_body": body}
 
 
+def _resolve_case(request: Request, player: dict, case: CaseResult, reward: int,
+                  called_it: bool, result_tier: str, ctx: dict):
+    """Close out a Case: bank the reward, append the outcome, check bust, draw the next
+    Case, render the verdict. Shared by BOTH resolution paths — /bet (Cases with a bet)
+    and /pick (recognition Cases, has_bet=False, which resolve the moment the pick lands).
+
+    Kept in one place deliberately: bust checking, peak tracking and the next-Case draw
+    must behave identically no matter which path got here, and two copies would drift.
+    `ctx` carries the path-specific verdict-template fields (bet figures, feedback badge).
+    """
+    old_cash = player["cash"]
+    new_cash = old_cash + reward
+    old_tier, new_tier = current_tier(old_cash), current_tier(new_cash)
+
+    outcome = {
+        "case_id": case.case_id, "title": case.title, "vertical": case.vertical,
+        "tier": case.tier, "result_tier": result_tier, "called_it": called_it,
+        "reward": reward, "is_outlier": case.is_outlier,
+    }
+    new_history = player["history"] + [outcome]
+    new_streak = loss_streak(new_history)
+
+    # Bust: the streak itself ends the run, regardless of cash remaining. Record the
+    # losing outcome with no next Case in flight, then show the Cold Case.
+    if new_streak >= BUST_THRESHOLD:
+        db.record_outcome(player["id"], outcome, new_cash, None)
+        return _render_cold_case(request, dict(player, cash=new_cash, history=new_history))
+
+    # Otherwise record the outcome and draw the next Case in one shot.
+    next_case = _draw(dict(player, cash=new_cash, history=new_history))
+    db.record_outcome(player["id"], outcome, new_cash, next_case.to_dict())
+
+    return templates.TemplateResponse(request, "verdict.html", {
+        "case": case,
+        "result_tier": result_tier,
+        "called_it": called_it,
+        "reward": reward,
+        "new_cash": new_cash,
+        "tier_up": new_tier > old_tier,
+        "tier_down": new_tier < old_tier,
+        "new_tier": new_tier,
+        "new_tier_name": tier_name(new_tier),
+        "loss_streak_now": new_streak,
+        "bust_threshold": BUST_THRESHOLD,
+        **_tier_context(new_cash),
+        **ctx,
+    })
+
+
 def _render_cold_case(request: Request, player: dict):
     return templates.TemplateResponse(request, "cold_case.html", {
         "player": player, "cash": player["cash"],
@@ -137,9 +194,12 @@ def home(request: Request):
 
 
 @app.post("/onboard")
-def onboard(nickname: str = Form(...)):
+def onboard(nickname: str = Form(...), archetype: str = Form(None)):
     nickname = nickname.strip()[:24] or "Anonymous"
-    player_id = db.create_player(nickname, STARTING_CASH)
+    # Only accept a known archetype; anything else (missing/tampered) stores None,
+    # which archetype_weight() treats as neutral — a valid, unbiased run.
+    archetype = archetype if archetype in ARCHETYPES else None
+    player_id = db.create_player(nickname, STARTING_CASH, archetype)
     resp = RedirectResponse(url="/play", status_code=303)
     resp.set_cookie(PLAYER_COOKIE, player_id, httponly=True, samesite="lax",
                     max_age=60 * 60 * 24 * 365)
@@ -183,9 +243,47 @@ def pick(request: Request, choice: str = Form(None)):
         return RedirectResponse(url="/play", status_code=303)
 
     case = CaseResult.from_dict(player["case_json"])
+
+    # Affordability gate (Bug 1): if the chosen option is a real purchase priced above
+    # the player's cash, reject it server-side — the disabled radio is only a client
+    # hint; a crafted POST must not slip a broke player into an option they can't pay
+    # for and collect its reward as if it happened. Re-show the deal with the option
+    # still locked. Cost is never debited; this only gates selectability.
+    if case.pick_type == "binary" and choice in ("a", "b"):
+        cost = case.option_a_cost if choice == "a" else case.option_b_cost
+        if cost is not None and player["cash"] < cost:
+            return templates.TemplateResponse(request, "deal.html", {
+                "case": case,
+                "vertical": VERTICAL_REGISTRY.get(case.vertical),
+                "cash": player["cash"],
+                "afford_error": (f"You can't pick that — it costs ${cost:.2f} and you have "
+                                 f"${player['cash']:,}. That's the point of this Case."),
+                **_tier_context(player["cash"]),
+            })
+
     # Binary Cases record the pick; investigation Cases have nothing to pick.
     case.picked = choice if (case.pick_type == "binary" and choice in ("a", "b")) else None
     db.set_current_case(player["id"], case.to_dict())
+
+    # RECOGNITION Cases (has_bet=False, e.g. all of Trust & Fraud): the pick IS the whole
+    # answer, so the Case resolves here and the bet step is skipped entirely — the loop
+    # runs DEAL -> YOUR CALL -> EVIDENCE -> VERDICT. Fraud detection is a judgment skill,
+    # not a precision skill; there's no number to estimate, so there's nothing to bet on.
+    # Scoring is called_it only, via recognition_reward().
+    if not case.has_bet:
+        old_cash = player["cash"]
+        called_it = (case.winner not in ("a", "b")) or case.picked == case.winner
+        # Same early-warning escalation as /bet: a 2nd-and-beyond consecutive loss bites 1.5x.
+        stakes_mult = 1.5 if loss_streak(player["history"]) >= 1 else 1.0
+        reward = recognition_reward(called_it, case.tier, old_cash,
+                                    deception_eligible=case.deception_eligible,
+                                    stakes_mult=stakes_mult)
+        # Reuse the existing result_tier vocabulary rather than inventing labels: a missed
+        # recognition Case must read as a loss to loss_streak() (which counts way_off +
+        # not called_it), so a scam you fell for feeds the bust streak like any wrong pick.
+        result_tier = "nailed_it" if called_it else "way_off"
+        return _resolve_case(request, player, case, reward, called_it, result_tier,
+                             {"has_bet": False})
 
     return templates.TemplateResponse(request, "bet.html", {
         "case": case,
@@ -218,65 +316,13 @@ def bet(request: Request, bet_value: float = Form(...)):
         deception_eligible=case.deception_eligible, stakes_mult=stakes_mult,
     )
 
-    new_cash = old_cash + reward
-    old_tier = current_tier(old_cash)
-    new_tier = current_tier(new_cash)
-
-    outcome = {
-        "case_id": case.case_id, "title": case.title, "vertical": case.vertical,
-        "tier": tier, "result_tier": result_tier, "called_it": called_it,
-        "reward": reward, "is_outlier": case.is_outlier,
-    }
-    new_history = player["history"] + [outcome]
-    new_streak = loss_streak(new_history)
-
-    # Bust: the streak itself ends the run, regardless of cash remaining. Record the
-    # losing outcome with no next Case in flight, then show the Cold Case.
-    if new_streak >= BUST_THRESHOLD:
-        db.record_outcome(player["id"], outcome, new_cash, None)
-        return _render_cold_case(request, dict(player, cash=new_cash, history=new_history))
-
-    # Otherwise record the outcome and draw the next Case in one shot.
-    player_after = dict(player, cash=new_cash, history=new_history)
-    next_case = _draw(player_after)
-    db.record_outcome(player["id"], outcome, new_cash, next_case.to_dict())
-
-    return templates.TemplateResponse(request, "verdict.html", {
-        "case": case,
+    return _resolve_case(request, player, case, reward, called_it, result_tier, {
         "has_bet": True,
         "bet_value": round(bet_value, 2),
         "actual_value": case.actual_value,
-        "result_tier": result_tier,
         "feedback": feedback,
-        "called_it": called_it,
-        "reward": reward,
         "reward_capped": reward_capped,
-        "new_cash": new_cash,
-        "tier_up": new_tier > old_tier,
-        "tier_down": new_tier < old_tier,
-        "new_tier": new_tier,
-        "new_tier_name": tier_name(new_tier),
-        "loss_streak_now": new_streak,
-        "bust_threshold": BUST_THRESHOLD,
-        **_tier_context(new_cash),
     })
-
-
-@app.get("/dev/cash")
-def dev_set_cash(request: Request, amount: int):
-    """DEV ONLY — jump your cash to any amount, e.g. /dev/cash?amount=8000.
-    Bumps peak to match, wipes the losing streak so you're not stuck busted, and
-    clears the in-flight Case so the next draw uses the new tier."""
-    player = current_player(request)
-    if not player:
-        return RedirectResponse(url="/", status_code=303)
-    with db._connect() as conn:
-        conn.execute(
-            "UPDATE players SET cash = ?, peak_cash = MAX(peak_cash, ?), "
-            "history = '[]', case_json = NULL WHERE id = ?",
-            (amount, amount, player["id"]),
-        )
-    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/cold-case", response_class=HTMLResponse)
@@ -295,7 +341,9 @@ def start_over(request: Request):
     resetting the busted one in place, so the old run stays intact as history."""
     player = current_player(request)
     nickname = player["nickname"] if player else "Anonymous"
-    player_id = db.create_player(nickname, STARTING_CASH)
+    # Keep the busted run's archetype — it's a lasting identity, not a per-run reroll.
+    archetype = player.get("archetype") if player else None
+    player_id = db.create_player(nickname, STARTING_CASH, archetype)
     resp = RedirectResponse(url="/play", status_code=303)
     resp.set_cookie(PLAYER_COOKIE, player_id, httponly=True, samesite="lax",
                     max_age=60 * 60 * 24 * 365)

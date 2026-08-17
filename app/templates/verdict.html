@@ -4,7 +4,9 @@
 <div class="card">
     <div class="kicker">The Evidence</div>
     <h1 class="case-title">{{ case.title }}</h1>
-    {% if has_bet and case.pick_type == "binary" %}
+    {# Binary Cases echo the pick whether or not a bet followed — recognition Cases
+       (has_bet=False, e.g. Trust & Fraud) are binary picks with no bet step. #}
+    {% if case.pick_type == "binary" %}
         <p class="sub">You picked: <strong>{{ case.option_a_label if case.picked == 'a' else case.option_b_label }}</strong></p>
     {% elif case.pick_type == "investigation" %}
         <p class="sub">Investigation closed. Here's what the numbers actually said.</p>
@@ -64,6 +66,13 @@
         <div class="progress" style="color:var(--red); margin-top:6px;">
             Dropped to Tier {{ new_tier }} · {{ new_tier_name }}
         </div>
+        {% endif %}
+
+        {# Callback probe: one quiet line, only when they read the replayed pattern correctly
+           (right call and not a way-off bet). No line otherwise, and never any scoring change —
+           this is a tuning signal, not a reward or a punishment. #}
+        {% if case.is_callback and case.callback_ref and called_it and result_tier != 'way_off' %}
+        <div class="callback-ref">Same read as {{ case.callback_ref }} a few rounds back.</div>
         {% endif %}
 
         <p class="case-notes">&ldquo;{{ case.case_notes }}&rdquo;</p>

@@ -16,6 +16,7 @@ class NILDealCase(CaseTemplate):
     """N1 — The NIL Deal (Tier 3). Deterministic: the local deal wins. The buried
     12-month exclusivity clause on the 'bigger brand' offer is the whole lesson."""
     case_type = "nil_deal"
+    pattern = "vague_upside_vs_concrete_terms"   # sibling: sponsorship_offer (concrete terms vs vague "potential" + exclusivity catch)
     # $200-600 first-NIL-deal framing suits a rising athlete; the numbers stop
     # making sense at Outlier net worth. Keep through Wealthy, retire at Tier 5.
     case_max_tier = 4
@@ -61,6 +62,7 @@ class SigningBonusCase(CaseTemplate):
     dollar-cost-averaged value after a year. Rate is a whole percent so the displayed
     growth reproduces exactly."""
     case_type = "signing_bonus"
+    pattern = "lump_vs_recurring_stream"   # sibling: income_type (lump now vs a smaller stream that can win over time)
 
     def generate(self) -> CaseResult:
         lump = 10000

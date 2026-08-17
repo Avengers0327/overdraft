@@ -7,10 +7,30 @@
     <p class="sub">Every deal looks good until you read the evidence. Climb from broke
     to outlier — one Case at a time.</p>
 
-    <form action="/onboard" method="post">
+    <form action="/onboard" method="post" autocomplete="off">
         <label class="kicker" for="nickname">What should we file you under?</label>
         <input type="text" id="nickname" name="nickname" maxlength="24"
                placeholder="Your name" autocomplete="off" autofocus required>
+
+        <div class="kicker" style="margin-top:16px;">Pick your lane — it tilts which Cases lead your run</div>
+        {# Everyday Money always comes first (the on-ramp) and never fades whatever you pick;
+           this only biases which of the OTHER verticals draw more or less as you climb. #}
+        <label class="option">
+            <input type="radio" name="archetype" value="creator" required autocomplete="off">
+            <span class="option-label">Creator</span>
+            <div class="option-teaser">Creator Economy Cases lead early, then Startup World grows in as you climb.</div>
+        </label>
+        <label class="option">
+            <input type="radio" name="archetype" value="athlete" required autocomplete="off">
+            <span class="option-label">Athlete</span>
+            <div class="option-teaser">Sports &amp; NIL Cases lead once they unlock, then Startup World grows in later.</div>
+        </label>
+        <label class="option">
+            <input type="radio" name="archetype" value="entrepreneur" required autocomplete="off">
+            <span class="option-label">Entrepreneur</span>
+            <div class="option-teaser">Trades &amp; Hustles Cases lead early, then Startup World grows in as you climb.</div>
+        </label>
+
         <button type="submit">Open your first Case →</button>
     </form>
 </div>

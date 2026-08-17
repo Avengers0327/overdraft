@@ -1,10 +1,13 @@
 """
 VERTICAL — Trades & Hustles  (v8 §3.3 · Granular_GDD Part A, T1-T2)
 
-Tier 2+ vertical. Only the two new-scripted Cases (Tool Investment, Apprentice vs
-Solo) are wired here. T3 "Self-Employment Tax" and T4 "Hustle Pricing" are the
-prior-GDD scripts that live in the missing Round_Scripts doc, so they are not
-registered yet — the vertical launches with its two available Cases.
+Tier 2+ vertical. Tool Investment and Apprentice vs Solo are the two new-scripted
+low-tier Cases (both retire by Tier 2-3). To keep the vertical from going SILENT at
+Tier 4-5 — a real problem for the Entrepreneur archetype, whose major IS this vertical
+while the shared Startup World minor is still ramping in — two Tier-4+ Cases were added:
+Hire a Crew (scale by capacity) and Raise Your Rates (scale by price, rebuilding the
+prior-GDD "Hustle Pricing" concept in the house pattern). T3 "Self-Employment Tax" is
+still a missing Round_Scripts script and not registered.
 """
 import random
 
@@ -106,10 +109,106 @@ class ApprenticeVsSoloCase(CaseTemplate):
         return r
 
 
+@register_case
+class HireCrewCase(CaseTemplate):
+    """Tier 4-5 — Hire a Crew. Scaling a maxed-out solo operation by hiring a full-time
+    helper: the fixed payroll only pays off if the extra capacity clears it. Threshold
+    variance on the rolled overflow demand (echoes tool_investment one scale up — does the
+    added capacity beat the fixed cost you took on?). Bet is the gross extra revenue the
+    helper's capacity brings in this year. Keeps the vertical alive at the tiers its own
+    archetype (Entrepreneur) leans on it."""
+    case_type = "hire_crew"
+    case_min_tier = 4   # a payroll decision is a Wealthy/Outlier-scale move, not an entry one
+
+    def generate(self) -> CaseResult:
+        payroll = 52000              # a full-time helper, loaded: wage + payroll tax + insurance
+        avg_job = 300
+        weeks = 48
+        overflow_per_week = random.randint(2, 6)   # jobs/week you currently turn away
+        extra_revenue = overflow_per_week * avg_job * weeks
+        winner = "a" if extra_revenue > payroll else "b"   # a = hire, b = stay solo
+
+        r = CaseResult(
+            case_id="hire_crew",
+            title="Hire a Crew",
+            vertical="trades_hustles",
+            tier=4,
+            first_look=f"You're booked solid and turning work away. Hire a full-time helper "
+                       f"(~${payroll:,}/yr loaded)  vs  stay solo and keep saying no.",
+            option_a_label="Hire the helper",
+            option_b_label="Stay solo",
+            option_a_teaser=f"~${payroll:,}/yr fixed · take the overflow jobs you can't reach now",
+            option_b_teaser="$0 payroll · but you're capped at your own two hands",
+            bet_range=(20000, 100000),
+            bet_label="Place your bet — extra revenue the helper's added capacity brings in this year?",
+        )
+        r.evidence = [
+            ("Helper — fully loaded cost", f"${payroll:,}/yr (wage + payroll tax + insurance)"),
+            ("Overflow you turn away now", f"~{overflow_per_week} jobs/week at ${avg_job} each"),
+            ("Extra revenue the helper unlocks",
+             f"{overflow_per_week} × ${avg_job} × {weeks} wks = ${extra_revenue:,}"),
+            ("Does it clear payroll?",
+             f"${extra_revenue:,} vs ${payroll:,} → {'clears it' if winner == 'a' else 'does NOT clear it'}"),
+        ]
+        r.winner = winner
+        r.actual_value = float(extra_revenue)
+        r.case_notes = ("A payroll the work can't cover is a faster way to go broke. One it "
+                        "clears is the only way to grow past your own two hands.")
+        return r
+
+
+@register_case
+class RaiseRatesCase(CaseTemplate):
+    """Tier 4-5 — Raise Your Rates (rebuilds the prior-GDD 'Hustle Pricing' concept in the
+    house pattern). Raising your rate loses price-sensitive clients but earns more per job —
+    a win until churn outruns the higher price. Winner turns on the rolled churn. Bet is
+    the new annual revenue after the raise."""
+    case_type = "raise_rates"
+    case_min_tier = 4
+
+    def generate(self) -> CaseResult:
+        jobs = 200
+        old_rate = 400
+        old_revenue = jobs * old_rate            # $80,000 book
+        raise_pct = 30
+        new_rate = round(old_rate * (1 + raise_pct / 100))   # $520
+        churn = round(random.uniform(0.10, 0.40), 2)         # fraction of clients lost
+        new_jobs = round(jobs * (1 - churn))
+        new_revenue = new_jobs * new_rate
+        winner = "a" if new_revenue > old_revenue else "b"   # a = raise, b = keep the rate
+
+        r = CaseResult(
+            case_id="raise_rates",
+            title="Raise Your Rates",
+            vertical="trades_hustles",
+            tier=4,
+            first_look=f"Your book is {jobs} jobs/yr at ${old_rate}. Raise to ${new_rate} "
+                       f"(+{raise_pct}%) and lose some clients  vs  keep the rate and the full book.",
+            option_a_label=f"Raise to ${new_rate}/job",
+            option_b_label=f"Keep ${old_rate}/job",
+            option_a_teaser=f"+{raise_pct}%/job · but price-sensitive clients walk",
+            option_b_teaser=f"${old_revenue:,}/yr · full book · leaving money on the table?",
+            bet_range=(50000, 110000),
+            bet_label="Place your bet — your new annual revenue after the raise?",
+        )
+        r.evidence = [
+            ("Current book", f"{jobs} jobs × ${old_rate} = ${old_revenue:,}/yr"),
+            ("New rate", f"${new_rate}/job (+{raise_pct}%)"),
+            ("Clients lost to the raise", f"{round(churn * 100)}% → {new_jobs} jobs remain"),
+            ("New revenue vs old",
+             f"{new_jobs} × ${new_rate} = ${new_revenue:,}  vs  ${old_revenue:,}"),
+        ]
+        r.winner = winner
+        r.actual_value = float(new_revenue)
+        r.case_notes = ("Raising prices isn't greed — it's a test of what the work is worth. "
+                        "The skill is knowing where more-per-job stops beating more clients.")
+        return r
+
+
 register_vertical(Vertical(
     key="trades_hustles",
     title="Trades & Hustles",
     tagline="The tools cost money. So does not having them.",
     min_tier=2,   # v8 §3.3 — Trades & Hustles is Tier 2+
-    case_types=["tool_investment", "apprentice_vs_solo"],
+    case_types=["tool_investment", "apprentice_vs_solo", "hire_crew", "raise_rates"],
 ))

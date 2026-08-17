@@ -28,6 +28,7 @@ class SponsorshipOfferCase(CaseTemplate):
     """C1 — Sponsorship Offer. Winner "a" always (GDD: first Creator case is
     deterministic, so the pattern lands before any tier deception subverts it)."""
     case_type = "sponsorship_offer"
+    pattern = "vague_upside_vs_concrete_terms"   # sibling: nil_deal (concrete cash vs vague "potential")
     # $100-200 flat-fee-vs-"exposure" is a small-creator lesson; a Wealthy/Outlier
     # creator fields far bigger, real-contract deals. Retire after Comfortable.
     case_max_tier = 3
@@ -81,7 +82,7 @@ class AlgorithmShockCase(CaseTemplate):
         # (441 × 0.31 → 137). One source of truth keeps the shown math honest.
         shock_multiplier = round(random.uniform(0.2, 0.5), 2)
         this_month = round(baseline * shock_multiplier)
-        view_drop = round((1 - shock_multiplier) * 100)
+        view_diff = round((1 - shock_multiplier) * 100)
 
         r = CaseResult(
             case_id="algorithm_shock",
@@ -101,7 +102,7 @@ class AlgorithmShockCase(CaseTemplate):
         )
         r.evidence = [
             ("Platform changes the recommendation algorithm", "No warning given"),
-            ("This month's views", f"−{view_drop}%"),
+            ("This month's views", f"−{view_diff}%"),
             ("This month's ad revenue", f"${baseline} × {shock_multiplier:.2f} = ${this_month}"),
             ("Warning · Appeal process", "None · None"),
         ]
@@ -117,6 +118,7 @@ class MerchDropCase(CaseTemplate):
     sell-through. GDD verdict rule verbatim — the lesson is dead-stock RISK, so
     the threshold is the stated 0.45, not the raw profit crossover."""
     case_type = "merch_drop"
+    pattern = "headline_hides_real_net"   # sibling: landlord_math (big sticker profit vs real net after realistic leakage)
 
     def generate(self) -> CaseResult:
         price = 22
@@ -164,6 +166,7 @@ class IncomeTypeCase(CaseTemplate):
     over a 12-month horizon the recurring stream often — but not always — beats
     the lump, which is the whole lesson about income *type*, not size."""
     case_type = "income_type"
+    pattern = "lump_vs_recurring_stream"   # sibling: signing_bonus (one-time lump vs a stream that adds up)
 
     def generate(self) -> CaseResult:
         horizon = 12   # months — a one-year horizon frames "recurring vs. once"

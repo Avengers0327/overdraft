@@ -36,9 +36,15 @@ def init_db() -> None:
             history     TEXT NOT NULL DEFAULT '[]',   -- per-Case outcomes
             case_json   TEXT,                          -- the Case currently in flight
             peak_cash   INTEGER NOT NULL DEFAULT 0,   -- high-water net worth reached
+            archetype   TEXT,                          -- onboarding choice: creator|athlete|entrepreneur
             created_at  TEXT NOT NULL
         );
         """)
+        # Migration: add archetype to DBs created before it existed (CREATE TABLE
+        # IF NOT EXISTS won't add columns to an already-present table).
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(players)")}
+        if "archetype" not in cols:
+            conn.execute("ALTER TABLE players ADD COLUMN archetype TEXT")
 
 
 def _now() -> str:
@@ -55,14 +61,14 @@ def _row_to_player(row: sqlite3.Row) -> dict:
 
 # ---- players ---------------------------------------------------------------
 
-def create_player(nickname: str, cash: int) -> str:
+def create_player(nickname: str, cash: int, archetype: str | None = None) -> str:
     player_id = str(uuid.uuid4())
     with _connect() as conn:
         conn.execute(
             """INSERT INTO players (id, nickname, cash, traits, history, case_json,
-                                    peak_cash, created_at)
-               VALUES (?, ?, ?, '[]', '[]', NULL, ?, ?)""",
-            (player_id, nickname, cash, cash, _now()),
+                                    peak_cash, archetype, created_at)
+               VALUES (?, ?, ?, '[]', '[]', NULL, ?, ?, ?)""",
+            (player_id, nickname, cash, cash, archetype, _now()),
         )
     return player_id
 
@@ -87,6 +93,31 @@ def set_traits(player_id: str, traits: list[str]) -> None:
             "UPDATE players SET traits = ? WHERE id = ?",
             (json.dumps(traits), player_id),
         )
+
+
+# Columns the dev panel (app/dev.py) is allowed to write directly. A whitelist, so a
+# dev route can never scribble over id/created_at or invent a column name.
+_DEV_WRITABLE = {"cash", "peak_cash", "archetype", "nickname"}
+_DEV_WRITABLE_JSON = {"traits", "history", "case_json"}
+
+
+def dev_set_fields(player_id: str, **fields) -> None:
+    """DEV ONLY (gated by settings.DEV_MODE at the route layer) — write player columns
+    directly, bypassing game rules. `traits`/`history`/`case_json` are JSON-encoded for
+    you; pass native lists/dicts/None. Raises on any column outside the whitelist."""
+    sets, values = [], []
+    for key, value in fields.items():
+        if key in _DEV_WRITABLE_JSON:
+            value = json.dumps(value) if value is not None else None
+        elif key not in _DEV_WRITABLE:
+            raise ValueError(f"dev_set_fields: refusing to write unknown column {key!r}")
+        sets.append(f"{key} = ?")
+        values.append(value)
+    if not sets:
+        return
+    with _connect() as conn:
+        conn.execute(f"UPDATE players SET {', '.join(sets)} WHERE id = ?",
+                     (*values, player_id))
 
 
 def record_outcome(player_id: str, outcome: dict, new_cash: int,

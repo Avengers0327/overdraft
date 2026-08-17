@@ -32,15 +32,15 @@ Three game systems carry the curriculum:
 
 ## PART 2 — THE CROSSWALK
 
-Based on the verticals currently live on the board: Creator Economy (open),
-Trades & Hustles (open), Insurance & Risk Transfer (open), Sports & NIL
-(open), Borrowed Money (Tier 4), Real Estate & Assets (Tier 4), Startup
-World (Tier 5).
+Based on the verticals currently live on the board: Everyday Money (open —
+the foundation, on-ramp + permanent floor), Creator Economy (open), Trades &
+Hustles (open), Insurance & Risk Transfer (open), Sports & NIL (open),
+Borrowed Money (Tier 4), Real Estate & Assets (Tier 4), Startup World (Tier 5).
 
 | Unit | Concept                      | Vertical home                     | First encountered | Status                     |
 |------|------------------------------|-----------------------------------|-------------------|----------------------------|
-| 1    | The Money Illusion           | *(Everyday Money — not on board)* | —                 | **NO HOME**                |
-| 2    | Where Money Lives            | *(Everyday Money — not on board)* | —                 | **NO HOME**                |
+| 1    | The Money Illusion           | Everyday Money                    | Tier 1            | Live                       |
+| 2    | Where Money Lives            | Everyday Money                    | Tier 1            | Live                       |
 | 3    | The Manipulation Machine     | *(Digital Traps — not on board)*  | —                 | **NO HOME**                |
 | 4    | Trust & Fraud                | *(Trust & Fraud — not on board)*  | —                 | **NO HOME**                |
 | 5    | The Hustle Economy           | Trades & Hustles                  | Tier 1            | Live                       |
@@ -60,17 +60,19 @@ payout). Deliberate reinforcement, not new curriculum.
 
 ## PART 3 — THE TWO REAL PROBLEMS
 
-### 3.1 Four units have no vertical on the board
+### 3.1 Two of the first four units still have no vertical on the board
 
-Units 1, 2, 3, and 4 — the entire first third of the curriculum — currently
-have nowhere to live. The verticals that were designed to carry them
-(Everyday Money, Digital Traps, Trust & Fraud) aren't registered.
+Units 1-2 now have a home: **Everyday Money is live** (registered as the open,
+Tier-1 foundation — it owns the run's on-ramp and keeps a permanent floor share of
+the draw). Units 3 and 4 still don't: Digital Traps and Trust & Fraud aren't
+registered yet.
 
-This is the single largest gap between the lesson plan and the build. It
-means a player right now can never encounter: digital currency illusion,
-bank fee literacy, HYSA vs. standard savings, credit vs. debit mechanics,
-urgency pricing, subscription traps, checkout upsells, phishing, fake
-investment pitches, or social engineering.
+This remains the largest gap between the lesson plan and the build. A player right
+now CAN encounter Units 1-2 content (digital currency illusion, bank fee literacy,
+HYSA vs. standard savings — all live in Everyday Money), but still can NEVER
+encounter: urgency pricing, subscription traps, checkout upsells (Unit 3 — Digital
+Traps), or phishing, fake investment pitches, social engineering (Unit 4 — Trust &
+Fraud). (Credit vs. debit was never scripted and remains unbuilt.)
 
 **Unit 4 (Trust & Fraud) is the most serious of these** — the lesson plan
 explicitly flags it as the most urgent, most actively-targeted content for
@@ -160,13 +162,16 @@ content — since no archetype currently majors in either.
 
 1. **Register Trust & Fraud as an open (Tier 1) vertical.** Highest
    curriculum priority; currently entirely absent.
-2. **Register Everyday Money as open.** Carries Units 1-2, the curriculum's
-   foundation; its Cases are already written and were previously built.
+2. ~~**Register Everyday Money as open.**~~ **DONE** — live as the open, Tier-1
+   foundation (on-ramp + permanent floor). Carries Units 1-2.
 3. **Register Digital Traps as open.** Carries Unit 3.
 4. **Decide Unit 7's home** — own vertical, or formally designated
    cross-cutting.
 5. **Register Markets & Risk (Tier 4-5)** to carry Units 12.1-12.3.
 6. **Find a home for Unit 10.1** (gross vs. net pay) — likely Everyday
    Money or Trades & Hustles.
-7. Only after 1-6: implement the coverage guarantee. It has nothing
-   meaningful to distribute across until the missing verticals exist.
+7. The **coverage guarantee is already built** (the hard outside-pair floor:
+   ≥1 in every 6 non-foundation draws comes from outside the player's archetype
+   pair). It will automatically protect Trust & Fraud / Digital Traps the moment
+   they're registered — so items 1 and 3 are all that stand between the plan and
+   the fraud/manipulation content reliably reaching every player.

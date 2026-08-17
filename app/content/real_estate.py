@@ -114,6 +114,7 @@ class LandlordMathCase(CaseTemplate):
     the lesson. Structured so net is always well below gross — sometimes positive,
     sometimes negative."""
     case_type = "landlord_math"
+    pattern = "headline_hides_real_net"   # sibling: merch_drop (headline gross vs real net after tax/maintenance/vacancy)
     # GDD marks R3 as Tier 5; the vertical opens at Tier 4, so pin this Case to
     # Tier 5 — buying a rental property is an Outlier-tier move, not a Wealthy one.
     case_min_tier = 5

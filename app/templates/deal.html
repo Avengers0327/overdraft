@@ -8,19 +8,27 @@
 
     {% if case.pick_type == "binary" %}
         <p class="sub">{% if case.first_look %}{{ case.first_look }}{% else %}Your call. Partial info only — that's the point.{% endif %}</p>
+        {% if afford_error %}<div class="afford-error">{{ afford_error }}</div>{% endif %}
+        {# An option with a real-dollar cost is LOCKED when cash < cost — you can't
+           buy what you can't afford (Bug 1). The option with no cost (skip/keep/free)
+           is never locked, so there's always a valid pick. Server re-checks on /pick. #}
+        {% set a_locked = case.option_a_cost and cash < case.option_a_cost %}
+        {% set b_locked = case.option_b_cost and cash < case.option_b_cost %}
         {# autocomplete="off" stops the browser restoring a prior radio selection
            for the shared "choice" group — no option is ever pre-selected, so the
            player must make an active call before "Lock it in" means anything. #}
         <form method="post" action="/pick" autocomplete="off">
-            <label class="option">
-                <input type="radio" name="choice" value="a" required autocomplete="off">
+            <label class="option{% if a_locked %} locked{% endif %}">
+                <input type="radio" name="choice" value="a" required autocomplete="off"{% if a_locked %} disabled{% endif %}>
                 <span class="option-label">{{ case.option_a_label }}</span>
                 <div class="option-teaser">{{ case.option_a_teaser }}</div>
+                {% if a_locked %}<div class="option-locked-note">You don't have ${{ '%.2f'|format(case.option_a_cost) }} — that's the point of this Case.</div>{% endif %}
             </label>
-            <label class="option">
-                <input type="radio" name="choice" value="b" required autocomplete="off">
+            <label class="option{% if b_locked %} locked{% endif %}">
+                <input type="radio" name="choice" value="b" required autocomplete="off"{% if b_locked %} disabled{% endif %}>
                 <span class="option-label">{{ case.option_b_label }}</span>
                 <div class="option-teaser">{{ case.option_b_teaser }}</div>
+                {% if b_locked %}<div class="option-locked-note">You don't have ${{ '%.2f'|format(case.option_b_cost) }} — that's the point of this Case.</div>{% endif %}
             </label>
             <button type="submit">Lock it in</button>
         </form>
